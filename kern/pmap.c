@@ -434,16 +434,11 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
         return -E_NO_MEM;
     }
 
-    if (*pte != 0) {
-        if (PGNUM(*pte) == PGNUM(page2pa(pp))) {
-            pp->pp_ref--;
-        } else {
-            page_remove(pgdir, va);
-        }
-    }
-
-    *pte = page2pa(pp) | perm|PTE_P;
     pp->pp_ref++;
+    if (*pte != 0) {
+        page_remove(pgdir, va);
+    }
+    *pte = page2pa(pp) | perm|PTE_P;
     return 0;
 }
 
