@@ -290,7 +290,7 @@ page_alloc(int alloc_flags)
 
     result = page_free_list;
     page_free_list = page_free_list->pp_link;
-    result->ref = 0;
+    result->pp_ref = 0;
     result->pp_link = NULL;
 
     if (alloc_flags & ALLOC_ZERO) {
@@ -357,7 +357,21 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	return NULL;
+    pde_t *pde = &pgdir[PDX(va)];
+    if (*pde == 0) {
+        if (create == false) {
+            return NULL;
+        } else {
+            struct PageInfo *pp = page_alloc(1);
+            if (pp == NULL) {
+                return NULL;
+            }
+            pp->pp_ref++;
+            *pde = page2pa(pp) | PTE_P | PTE_U;
+        }
+    }
+    pte_t *pte_base = KADDR(PTE_ADDR(*pde));
+    return &pte_base[PTX(va)];
 }
 
 //
@@ -375,6 +389,14 @@ static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
+    for (int i = 0; i < size / PGSIZE; i++) {
+        pte_t *pte = pgdir_walk(pgdir, (void *)(va + i * PGSIZE), true);
+        if (pte == NULL) {
+            cprintf("boot_map_region: no such page entry!\n");
+        } else {
+            *pte = (pa + i * PGSIZE) | perm | PTE_P;
+        }
+    }
 }
 
 //
@@ -406,7 +428,20 @@ int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
 	// Fill this function in
-	return 0;
+    pte_t *pte = pgdir_walk(pgdir, va, true);
+    if (pte == NULL) {
+        return -E_NO_MEM;
+    }
+
+    if (PGNUM(*pte) == PGNUM(page2pa(pp))) {
+        pp->pp_ref--;
+    } else if (*pte != 0){
+        page_remove(pgdir, va);
+    }
+
+    *pte = page2pa(pp) | perm | PTE_P;
+    pp->pp_ref++;
+    return 0;
 }
 
 //
@@ -424,7 +459,18 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	// Fill this function in
-	return NULL;
+    pte_t *pte = pgdir_walk(pgdir, va, false);
+    if (pte == NULL) {
+        cprintf("page_lookup: no such page directory entry!\n");
+        return NULL;
+    }
+    if (*pte == 0) {
+        return NULL;
+    }
+    if (pte_store) {
+        *pte_store = pte;
+    }
+    return pa2page(*pte);
 }
 
 //
@@ -446,6 +492,14 @@ void
 page_remove(pde_t *pgdir, void *va)
 {
 	// Fill this function in
+    pte_t *pte;
+    struct PageInfo *pp = page_lookup(pgdir, va, &pte);
+    if (pp == NULL) {
+        return;
+    }
+    page_decref(pp);
+    *pte = 0;
+    tlb_invalidate(pgdir, va);
 }
 
 //
