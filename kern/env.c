@@ -359,11 +359,7 @@ load_icode(struct Env *e, uint8_t *binary)
 	// at virtual address USTACKTOP - PGSIZE.
 
 	// LAB 3: Your code here.
-    struct PageInfo *p;
-    if (!(p = page_alloc(0))) {
-        panic("load_icode: %e", -E_NO_MEM);
-    }
-    page_insert(e->env_pgdir, p, (void *)(USTACKTOP - PGSIZE), PTE_P|PTE_W|PTE_U);
+    region_alloc(e, (void *)(USTACKTOP - PGSIZE), PGSIZE);
 }
 
 //
