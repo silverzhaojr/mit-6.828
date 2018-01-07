@@ -157,18 +157,6 @@ env_init_percpu(void)
 // Returns 0 on success, < 0 on error.  Errors include:
 //	-E_NO_MEM if page directory or table could not be allocated.
 //
-
-static void
-boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
-{
-    for (int i = 0; i < size; i += PGSIZE) {
-        pte_t *pte = pgdir_walk(pgdir, (void *)(va + i), true);
-        if (pte) {
-            *pte = (pa + i) | perm | PTE_P;
-        }
-    }
-}
-
 static int
 env_setup_vm(struct Env *e)
 {
@@ -198,12 +186,7 @@ env_setup_vm(struct Env *e)
 	// LAB 3: Your code here.
     p->pp_ref++;
     e->env_pgdir = (pde_t *) page2kva(p);
-    memset(e->env_pgdir, 0, PGSIZE);
-
-    boot_map_region(e->env_pgdir, KERNBASE, 0xffffffff - KERNBASE + 1, 0x0, PTE_P|PTE_W);
-    boot_map_region(e->env_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_P|PTE_W);
-    boot_map_region(e->env_pgdir, UENVS, PTSIZE, PADDR(envs), PTE_P|PTE_U);
-    boot_map_region(e->env_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_P|PTE_U);
+    memcpy(e->env_pgdir, kern_pgdir, PGSIZE);
 
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
