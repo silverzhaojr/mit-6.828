@@ -284,7 +284,6 @@ region_alloc(struct Env *e, void *va, size_t len)
             panic("region_alloc: %e", -E_NO_MEM);
         }
         page_insert(e->env_pgdir, p, (void *)i, PTE_P|PTE_W|PTE_U);
-        page_insert(kern_pgdir, p, (void *)i, PTE_P|PTE_W|PTE_U);
     }
 }
 
@@ -346,6 +345,7 @@ load_icode(struct Env *e, uint8_t *binary)
     struct Elf *elf = (struct Elf *)binary;
     ph = (struct Proghdr *) (binary + elf->e_phoff);
     eph = ph + elf->e_phnum;
+    lcr3(PADDR(e->env_pgdir));
     for (; ph < eph; ph++) {
         if (ph->p_type == ELF_PROG_LOAD) {
             region_alloc(e, (void *)ph->p_va, ph->p_memsz);
@@ -353,6 +353,7 @@ load_icode(struct Env *e, uint8_t *binary)
             memset((void *)(ph->p_va + ph->p_filesz), 0, ph->p_memsz - ph->p_filesz);
         }
     }
+    lcr3(PADDR(kern_pgdir));
     e->env_tf.tf_eip = elf->e_entry;
 
 	// Now map one page for the program's initial stack
