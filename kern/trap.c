@@ -69,6 +69,7 @@ trap_init(void)
     for (int i = 0; i < 32; i++) {
         SETGATE(idt[i], 0, GD_KT, vectors[i], 0);
     }
+    SETGATE(idt[T_BRKPT], 0, GD_KT, vectors[T_BRKPT], 3);
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -150,6 +151,9 @@ trap_dispatch(struct Trapframe *tf)
 	// LAB 3: Your code here.
     if (tf->tf_trapno == T_PGFLT) {
         page_fault_handler(tf);
+        return;
+    } else if (tf->tf_trapno == T_BRKPT) {
+        monitor(tf);
         return;
     }
 
